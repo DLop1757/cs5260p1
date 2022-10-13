@@ -2,7 +2,10 @@
 # Project 1 - Q1
 import os
 import numpy as np
-import sys
+
+
+import collections
+
 class SokubanSolver1:
 	def __loadInput(self, filename):
 		f = open(filename, 'r')
@@ -15,78 +18,102 @@ class SokubanSolver1:
 		rawinput = self.__loadInput(inputFilename)
 		# Implement this
 		# Start with processing the input, get the initial state and game map 
-		pinput = self.processInput(rawinput)
-		print(pinput)
-		boxLoc = self.getBoxLocation(pinput)
-		wallLoc = self.getWallLocation(pinput)
-		playerLoc = self.getPlayerLocation(pinput)
-		self.validMoves(pinput, playerLoc, boxLoc)
-		sys.exit()
-		# Then implement a search function
-		solution = -1 # Change this
-		return solution
+		self.pinput = self.processInput(rawinput)
+		boxLoc = self.getBoxLocation(self.pinput)
+		self.wallLoc = self.getWallLocation(self.pinput)
+		self.goalLoc = self.getGoalLocation(self.pinput)
+		playerLoc = self.getPlayerLocation(self.pinput)
+		n_actions = self.breadthFirstSearch(boxLoc, playerLoc)
 
-	# cleans up np.where operation
+		return n_actions
+
+	# function to help find indexes of state objects
 	def findLocations(self, pinput, val):
 		rows, cols = np.where(pinput==val)
 		size = len(rows)
 		output = np.zeros((size, 2)).astype('int')
 		output[:,0] = rows
 		output[:,1] = cols
-
 		return output
 
 	# gets location of box
 	def getBoxLocation(self,pinput):
-		return self.findLocations(pinput, 2)[0]
+		return tuple(self.findLocations(pinput, 2)[0])
 	# gets location of box
 	def getPlayerLocation(self,pinput):
-		return self.findLocations(pinput, 1)[0]
+		return tuple(self.findLocations(pinput, 1)[0])
 	# gets location of walls
 	def getWallLocation(self,pinput):
-		return self.findLocations(pinput, 0)
+		return tuple(self.findLocations(pinput, 0))
 	# gets location of goal
 	def getGoalLocation(self,pinput):
-		return self.findLocations(pinput, 4)[0]
+		return tuple(self.findLocations(pinput, 4)[0])
+	# did we win the game
+	def winGame(self, boxLoc):
+		return (boxLoc == self.goalLoc)
+
 	# check valid vertical moves
 	def validVMoveHelper(self, move, pinput, playerLoc, boxLoc):
-		if ((pinput[playerLoc[0]+move,playerLoc[1]] == 3) or (pinput[playerLoc[0]+move,playerLoc[1]] == 4)):
-			return 1
-		elif ((pinput[playerLoc[0]+move,playerLoc[1]] == 2) and (pinput[playerLoc[0]+move+move,playerLoc[1]] != 0)):
-			return 2
-		return 0
+		newPlayerLoc = (playerLoc[0]+move, playerLoc[1])
+		push = (tuple(newPlayerLoc) == tuple(boxLoc))
+		try:
+			if ((playerLoc[0]+move == -1)):
+				return 0
+			if ((push) and ((boxLoc[0]+move == -1) or (boxLoc[0]+move+move == -1))):
+				return 0
+			elif ((pinput[playerLoc[0]+move,playerLoc[1]] != 0)):
+				if ((push) and (pinput[playerLoc[0]+move+move,playerLoc[1]] != 0)):
+					return 2
+				return 1
+			return 0
+		except:
+			return 0 
+		
 	# check valid horizontal moves
 	def validHMoveHelper(self, move, pinput, playerLoc, boxLoc):
-		if ((pinput[playerLoc[0],playerLoc[1]+move] == 3) or (pinput[playerLoc[0],playerLoc[1]+move] == 4)):
-			return 1
-		elif ((pinput[playerLoc[0],playerLoc[1]+move] == 2) and (pinput[playerLoc[0],playerLoc[1]+move+move] != 0)):
-			return 2
-		return 0
+		newPlayerLoc = (playerLoc[0], playerLoc[1]+move)
+		# check if we go out of bounds with try except
+		push = (tuple(newPlayerLoc) == tuple(boxLoc))
+		try:
+			if ((playerLoc[1]+move == -1)):
+				return 0
+			if ((push) and ((boxLoc[1]+move == -1) or (boxLoc[1]+move+move == -1))):
+				return 0
+			elif ((pinput[playerLoc[0],playerLoc[1]+move] != 0)):
+				if ((push) and (pinput[playerLoc[0],playerLoc[1]+move+move] != 0)):
+					return 2
+				else:
+					return 1
+			return 0
+		except:
+			return 0
+			
 	# list of current valid moves
-	def validMoves(self, pinput, playerLoc, boxLoc):
+	def validMoves(self, playerLoc, boxLoc):
 		currentValidMoves = []
 		# check all four sides (up, down, left, right)
-		up = self.validVMoveHelper(-1, pinput, playerLoc, boxLoc)
-		down = self.validVMoveHelper(1, pinput, playerLoc, boxLoc)
-		left = self.validHMoveHelper(-1, pinput, playerLoc, boxLoc)
-		right = self.validHMoveHelper(1, pinput, playerLoc, boxLoc)
-		if (up==1): currentValidMoves.append([-1,0,'u'])
+		up = self.validVMoveHelper(-1, self.pinput, playerLoc, boxLoc)
+		down = self.validVMoveHelper(1, self.pinput, playerLoc, boxLoc)
+		left = self.validHMoveHelper(-1, self.pinput, playerLoc, boxLoc)
+		right = self.validHMoveHelper(1, self.pinput, playerLoc, boxLoc)
+		if (up==1): currentValidMoves.append([-1,0,'uM'])
 		if (up==2): currentValidMoves.append([-1,0,'uP'])
-		if (down==1): currentValidMoves.append([1,0,'d'])
+		if (down==1): currentValidMoves.append([1,0,'dM'])
 		if (down==2): currentValidMoves.append([1,0,'dP'])
-		if (left==1): currentValidMoves.append([0,-1,'l'])
+		if (left==1): currentValidMoves.append([0,-1,'lM'])
 		if (left==2): currentValidMoves.append([0,-1,'lP'])
-		if (right==1): currentValidMoves.append([0,1,'r'])
+		if (right==1): currentValidMoves.append([0,1,'rM'])
 		if (right==2): currentValidMoves.append([0,1,'rP'])
 		return currentValidMoves
 	
+	# update location of player and box based on action
 	def updateLocations(self, playerLoc, boxLoc, currentAction):
-		currentPX, currentPY = playerLoc
-		playerLoc = currentPX+currentAction[0], currentPY+currentAction[1]
+		newPlayerLoc = playerLoc[0]+currentAction[0], playerLoc[1]+currentAction[1]
 		if (currentAction[2][1] == 'P'):
-			boxLoc = [boxLoc[0]+currentAction[0], boxLoc[1]+currentAction[1]]
-		return playerLoc, boxLoc
+			boxLoc = (boxLoc[0]+currentAction[0], boxLoc[1]+currentAction[1])
+		return newPlayerLoc, boxLoc
 		
+	
 	def processInput(self, rawinput):
 		dim0 = len(rawinput[0])
 		dim1 = len(rawinput)
@@ -105,9 +132,32 @@ class SokubanSolver1:
 					output[i][j] = 4
 		return output
 
+	# BFS implementation
+	def breadthFirstSearch(self, boxLoc, playerLoc):
+		beginBox = boxLoc
+		beginPlayer = playerLoc
+
+		startState = (beginPlayer, beginBox) # e.g. ((2, 2), ((2, 3), (3, 4), (4, 4), (6, 1), (6, 4), (6, 5)))
+		frontier = collections.deque([[startState]]) # store states
+		actions = collections.deque([[0]]) # store actions
+		exploredSet = set()
+
+		while frontier:
+			node = frontier.popleft()
+			node_action = actions.popleft() 
+			if self.winGame(node[-1][-1]):
+				return len(node_action[1:])
+			if node[-1] not in exploredSet:
+				exploredSet.add(node[-1])
+				for action in self.validMoves(node[-1][0], node[-1][1]):
+					newPosPlayer, newPosBox = self.updateLocations(node[-1][0], node[-1][1], action)
+					frontier.append(node + [(newPosPlayer, newPosBox)])
+					actions.append(node_action + [action[-1]])
+		# failed -> couldn't find solution
+		return -1
 
 if __name__=='__main__':
-	test_file_number = 3 # Change this to use different test files
+	test_file_number = 5 # Change this to use different test files
 	filename = 'game%d.txt' % test_file_number
 	testfilepath = os.path.join('test','Q1', filename)
 	Solver = SokubanSolver1()
